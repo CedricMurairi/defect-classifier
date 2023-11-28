@@ -46,7 +46,6 @@ def is_similar(img1, img2):
         return False
 
 
-
 def preprocess_image_vgg(image):
     img_resized = cv2.resize(image, (224, 224))
     img_resized = cv2.cvtColor(img_resized, cv2.COLOR_RGB2BGR)
