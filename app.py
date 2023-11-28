@@ -6,6 +6,10 @@ import joblib
 import cv2
 from skimage.metrics import structural_similarity as ssim
 
+import os
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+
+
 def ssi_image_similarity(img1: np.ndarray, img2: np.ndarray) -> float:
     """
     Calculate the similarity score between two images using Structural Similarity Index (SSI).
@@ -52,32 +56,33 @@ def preprocess_image(image: np.ndarray) -> np.ndarray:
     return img_resized
 
 def main():
-    
     st.header("Classifying Defects in Submersible Pump Impellers")
     st.subheader("Categorizes submersible pump impellers into two primary groups: Defective or Non-Defective")
-
 
     # Load the reference image
     reference_image_path = "cast_def_1.jpeg"
     reference_image_array = cv2.imread(reference_image_path, cv2.IMREAD_COLOR)
-    uploaded_image = st.file_uploader("Upload an image of top view of a submersible pump impeller:", type=["jpg", "png", "jpeg"])
+    uploaded_image = st.file_uploader("Upload an image of the top view of a submersible pump impeller:", type=["jpg", "png", "jpeg"])
 
     col1, col2 = st.columns(2)
-    
+
     # Display the reference image in the first column
     with col1:
         st.write("Reference Image:")
         st.image(reference_image_array, use_column_width=True)
 
     if uploaded_image is not None:
-        # Read the uploaded image
-        uploaded_image_array = cv2.imdecode(np.frombuffer(uploaded_image.read(), np.uint8), cv2.IMREAD_COLOR)
+        try:
+            # Read the uploaded image
+            uploaded_image_array = cv2.imdecode(np.frombuffer(uploaded_image.read(), np.uint8), cv2.IMREAD_COLOR)
+        except Exception as e:
+            st.error(f"Error reading the uploaded image: {e}")
+            return
 
         reference_image = reference_image_array
-
         similarity_score = ssi_image_similarity(uploaded_image_array, reference_image)
 
-        if similarity_score >= 0.05:  
+        if similarity_score >= 0.05:
             # Display the uploaded image in the second column
             with col2:
                 st.write("Uploaded Image:")
