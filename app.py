@@ -37,11 +37,16 @@ def hog_image_similarity(img1, img2):
 
 
 def is_similar(img1, img2):
-    sift_score = sift_image_similarity(img1, img2)
-    hog_score = hog_image_similarity(img1, img2)
-    combined_score = 0.6 * sift_score + 0.4 * hog_score
-    similarity_threshold = 0.6
-    return combined_score >= similarity_threshold
+    try:
+        sift_score = sift_image_similarity(img1, img2)
+        hog_score = hog_image_similarity(img1, img2)
+        combined_score = 0.6 * sift_score + 0.4 * hog_score
+        similarity_threshold = 0.6
+        return combined_score >= similarity_threshold
+    except Exception as e:
+        st.error(e)
+        return False
+
 
 
 def preprocess_image_vgg(image):
