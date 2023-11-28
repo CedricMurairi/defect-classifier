@@ -7,8 +7,6 @@ import cv2
 from skimage.metrics import structural_similarity as ssim
 from skimage.feature import hog
 from skimage import exposure
-import matplotlib
-matplotlib.use('Agg')
 
 
 def sift_image_similarity(img1, img2):
