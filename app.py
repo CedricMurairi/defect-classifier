@@ -1,113 +1,125 @@
 import streamlit as st
-from PIL import Image
-import joblib
-from keras.applications.vgg16 import VGG16, preprocess_input
 import numpy as np
+import tensorflow as tf
+from keras.applications.vgg16 import preprocess_input
+import joblib
 import cv2
 from skimage.metrics import structural_similarity as ssim
-from skimage.feature import hog
-from skimage import exposure
+
+import os
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 
 
-def sift_image_similarity(img1, img2):
-    sift = cv2.SIFT_create()
-    kp1, des1 = sift.detectAndCompute(img1, None)
-    kp2, des2 = sift.detectAndCompute(img2, None)
-    bf = cv2.BFMatcher()
-    matches = bf.knnMatch(des1, des2, k=2)
-    good_matches = [m for m, n in matches if m.distance < 0.75 * n.distance]
-    similarity_score = len(good_matches) / max(len(kp1), len(kp2))
-    return similarity_score
+def ssi_image_similarity(img1: np.ndarray, img2: np.ndarray) -> float:
+    """
+    Calculate the similarity score between two images using Structural Similarity Index (SSI).
 
+    Parameters:
+    - img1: First input image.
+    - img2: Second input image.
 
-def hog_image_similarity(img1, img2):
-    img1_gray = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
-    img2_gray = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
-    _, hog_img1 = hog(img1_gray, visualize=True)
-    _, hog_img2 = hog(img2_gray, visualize=True)
-    hog_img1 = exposure.rescale_intensity(hog_img1, in_range=(0, 10))
-    hog_img2 = exposure.rescale_intensity(hog_img2, in_range=(0, 10))
-    hog_img1 = (hog_img1 * 255).astype(np.uint8)
-    hog_img2 = (hog_img2 * 255).astype(np.uint8)
-    similarity_score, _ = ssim(
-        hog_img1, hog_img2, full=True, data_range=hog_img1.max() - hog_img1.min())
-    return similarity_score
-
-
-def is_similar(img1, img2):
+    Returns:
+    - Similarity score between the two images.
+    """
     try:
-        sift_score = sift_image_similarity(img1, img2)
-        hog_score = hog_image_similarity(img1, img2)
-        combined_score = 0.6 * sift_score + 0.4 * hog_score
-        similarity_threshold = 0.6
-        return combined_score >= similarity_threshold
+        img1_gray = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
+        img2_gray = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
+        similarity_score, _ = ssim(img1_gray, img2_gray, full=True)
+        return similarity_score
     except Exception as e:
-        st.error(e)
-        return False
+        st.error(f"Error calculating the similarity score: {e}")
+        return 0
 
+def classify_image(img_prediction: float) -> str:
+    """
+    Classify the image based on the prediction probability.
 
-def preprocess_image_vgg(image):
+    Parameters:
+    - img_prediction: Prediction probability.
+
+    Returns:
+    - Classification result.
+    """
+    if img_prediction > 0.5:
+        return 'Pump Impeller/Washer Image is NOT DEFECTIVE(Ok_front)'
+    else:
+        return 'Pump Impeller/Washer Image is DEFECTIVE(def_front)'
+
+def preprocess_image(image: np.ndarray) -> np.ndarray:
+    """
+    Preprocess the input image.
+
+    Parameters:
+    - image: Input image.
+
+    Returns:
+    - Preprocessed image.
+    """
     img_resized = cv2.resize(image, (224, 224))
-    img_resized = cv2.cvtColor(img_resized, cv2.COLOR_RGB2BGR)
     img_resized = preprocess_input(img_resized)
-    img_resized = img_resized / 255
     return img_resized
 
-
-def extract_features_vgg(model, image):
-    return model.predict(np.expand_dims(image, axis=0)).reshape(-1)
-
-
-def classify_defect(image_features, model):
-    # Ensure the input array is 2D
-    image_features_2d = image_features.reshape(1, -1)
-
-    prediction = model.predict(image_features_2d)[0]
-
-    return 'Washer Image is NOT DEFECTIVE(Ok_front)' if prediction > 0.5 else 'Washer Image is DEFECTIVE(def_front)'
-
-
 def main():
-    st.title("Defect Classification App")
+    st.header("Classifying Defects in Submersible Pump Impellers")
+    st.subheader("Categorizes submersible pump impellers into two primary groups: Defective or Non-Defective")
 
-    reference_image_path = "cast_ok_0_1155.jpeg"
-    reference_image = cv2.imread(reference_image_path)
-
-    uploaded_file = st.file_uploader(
-        "Upload an image of top view of a submersible pump impeller:", type=["jpg", "png", "jpeg"])
+    # Load the reference image
+    reference_image_path = "cast_def_1.jpeg"
+    reference_image_array = cv2.imread(reference_image_path, cv2.IMREAD_COLOR)
+    uploaded_image = st.file_uploader("Upload an image of the top view of a submersible pump impeller:", type=["jpg", "png", "jpeg"])
 
     col1, col2 = st.columns(2)
 
+    # Display the reference image in the first column
     with col1:
         st.write("Reference Image:")
-        st.image(reference_image, use_column_width=True)
+        st.image(reference_image_array, use_column_width=True)
 
-    if uploaded_file is not None:
-        uploaded_image = Image.open(uploaded_file)
-        img1 = cv2.cvtColor(np.array(uploaded_image), cv2.COLOR_RGB2BGR)
+    if uploaded_image is not None:
+        try:
+            # Read the uploaded image
+            uploaded_image_array = cv2.imdecode(np.frombuffer(uploaded_image.read(), np.uint8), cv2.IMREAD_COLOR)
+        except Exception as e:
+            st.error(f"Error reading the uploaded image: {e}")
+            return
 
-        # Image Similarity Check
-        if not is_similar(img1, reference_image):
-            st.warning(
-                "Uploaded image is not inherently similar to the reference image.")
-        else:
-            # Image Preprocessing and Classification using VGG16
-            img1_processed = preprocess_image_vgg(img1)
-            vgg_model = VGG16(weights='imagenet',
-                              include_top=False, input_shape=(224, 224, 3))
-            img1_features = extract_features_vgg(vgg_model, img1_processed)
+        reference_image = reference_image_array
+        similarity_score = ssi_image_similarity(uploaded_image_array, reference_image)
 
-            model_filename = "vgg_svc_model.joblib"
-            vgg16_model = joblib.load(model_filename)
-
-            result = classify_defect(img1_features, vgg16_model)
-
+        if similarity_score >= 0.05:
+            # Display the uploaded image in the second column
             with col2:
                 st.write("Uploaded Image:")
-                st.image(uploaded_image, use_column_width=True)
+                st.image(uploaded_image_array, use_column_width=True)
 
-            st.success(f"Prediction: {result}")
+            # Preprocess the user input image
+            preprocessed_image = preprocess_image(uploaded_image_array)
 
+            # Load model without classifier/fully connected layers (VGG16)
+            vgg_model = tf.keras.applications.VGG16(weights='imagenet', include_top=False, input_shape=(224, 224, 3))
+
+            # Extract features using VGG16
+            input_img_feature = vgg_model.predict(np.expand_dims(preprocessed_image, axis=0))
+            input_img_features = input_img_feature.reshape(input_img_feature.shape[0], -1)
+
+            # Load the saved SVC Model
+            model_filename = "vgg_svc_model.joblib"
+            model = joblib.load(model_filename)
+
+            # Make predictions with probabilities
+            prediction_probs = model.predict(input_img_features)[0]
+
+            st.success(f"Uploaded image is similar to the reference image with Similarity Score of {similarity_score:.2f}")
+
+            # Display the prediction
+            st.write("Classification Result:")
+            result = classify_image(prediction_probs)
+            st.write(result)
+
+        else:
+            with col2:
+                st.write("Uploaded Image:")
+            st.warning(f"The uploaded image has low similarity to the reference image. Similarity Score: {similarity_score:.2f}")
 
 if __name__ == "__main__":
     main()
