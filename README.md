@@ -8,6 +8,11 @@ The Image Defect Classifier is a specialized tool designed for classifying defec
 - **Defect Classification**: Classifies the impeller as either defective or non-defective based on the image analysis.
 - **User-Friendly Interface**: Built with Streamlit, the application offers an easy-to-use interface for uploading and analyzing images.
 
+## Demo Link
+[Awesome Image Defect Classifier](https://defect-classifie-vyznn4pb6spv6mopocwec6.streamlit.app/)
+
+If you want to test this out locally -- follow the instructions below:
+
 ## Installation and Usage
 To set up and run the Image Defect Classifier, follow these steps:
 
