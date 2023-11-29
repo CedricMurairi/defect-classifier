@@ -21,10 +21,14 @@ def ssi_image_similarity(img1: np.ndarray, img2: np.ndarray) -> float:
     Returns:
     - Similarity score between the two images.
     """
-    img1_gray = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
-    img2_gray = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
-    similarity_score, _ = ssim(img1_gray, img2_gray, full=True)
-    return similarity_score
+    try:
+        img1_gray = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
+        img2_gray = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
+        similarity_score, _ = ssim(img1_gray, img2_gray, full=True)
+        return similarity_score
+    except Exception as e:
+        st.error(f"Error calculating the similarity score: {e}")
+        return 0
 
 def classify_image(img_prediction: float) -> str:
     """
