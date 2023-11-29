@@ -16,12 +16,12 @@ vgg_model = tf.keras.applications.VGG16(
 )
 
 
-@st.cache
+@st.cache_data
 def load_model(model_filename):
     return joblib.load(model_filename)
 
 
-@st.cache
+@st.cache_data
 def preprocess_image(image: np.ndarray) -> np.ndarray:
     img_resized = cv2.resize(image, (224, 224))
     return preprocess_input(img_resized)
